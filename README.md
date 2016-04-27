@@ -1,3 +1,10 @@
+## 说明
+这个Dubbo是基于当当网开源的Dubbox-2.8.4版本上修改的。
+* 支持JDK1.6
+* ZooKeeper注册地址支持URL（如：http://localhost/zkaddrs.html），将页面内容作为ZooKeeper地址。
+
+以下是Dubbox原文说明
+
 Dubbox now means Dubbo eXtensions. If you know java, javax and dubbo, you know what dubbox is :)
 
 Dubbox adds features like RESTful remoting, Kyro/FST serialization, etc to the popular [dubbo service framework](http://github.com/alibaba/dubbo). It's been used by several projects of [dangdang.com](http://www.dangdang.com), which is one of the major e-commerce companies in China.
