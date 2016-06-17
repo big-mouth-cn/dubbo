@@ -18,7 +18,6 @@ package com.alibaba.dubbo.common.bytecode;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -39,6 +38,7 @@ import javassist.CtNewMethod;
 import javassist.LoaderClassPath;
 import javassist.NotFoundException;
 
+import com.alibaba.dubbo.common.utils.ClassHelper;
 import com.alibaba.dubbo.common.utils.ReflectUtils;
 
 /**
@@ -59,7 +59,7 @@ public final class ClassGenerator
 
 	public static ClassGenerator newInstance()
 	{
-		return new ClassGenerator(getClassPool(Thread.currentThread().getContextClassLoader()));
+		return new ClassGenerator(getClassPool(ClassHelper.getCallerClassLoader(ClassGenerator.class)));
 	}
 
 	public static ClassGenerator newInstance(ClassLoader loader)
@@ -290,70 +290,65 @@ public final class ClassGenerator
 	}
 
 	public Class<?> toClass(){
-		return toClass(getClass().getClassLoader(), getClass().getProtectionDomain());
-	}
-
-	public Class<?> toClass(ClassLoader loader, ProtectionDomain pd)
-	{
-		if( mCtc != null )
-			mCtc.detach();
-		long id = CLASS_NAME_COUNTER.getAndIncrement();
-		try
-		{
-			CtClass ctcs = mSuperClass == null ? null : mPool.get(mSuperClass);
-			if( mClassName == null )
-				mClassName = ( mSuperClass == null || javassist.Modifier.isPublic(ctcs.getModifiers())
-						? ClassGenerator.class.getName() : mSuperClass + "$sc" ) + id;
-			mCtc = mPool.makeClass(mClassName);
-			if( mSuperClass != null )
-				mCtc.setSuperclass(ctcs);
-			mCtc.addInterface(mPool.get(DC.class.getName())); // add dynamic class tag.
-			if( mInterfaces != null )
-				for( String cl : mInterfaces ) mCtc.addInterface(mPool.get(cl));
-			if( mFields != null )
-				for( String code : mFields ) mCtc.addField(CtField.make(code, mCtc));
-			if( mMethods != null )
-			{
-				for( String code : mMethods )
-				{
-					if( code.charAt(0) == ':' )
-						mCtc.addMethod(CtNewMethod.copy(getCtMethod(mCopyMethods.get(code.substring(1))), code.substring(1, code.indexOf('(')), mCtc, null));
-					else
-						mCtc.addMethod(CtNewMethod.make(code, mCtc));
-				}
-			}
-			if( mDefaultConstructor )
-				mCtc.addConstructor(CtNewConstructor.defaultConstructor(mCtc));
-			if( mConstructors != null )
-			{
-				for( String code : mConstructors )
-				{
-					if( code.charAt(0) == ':' )
-					{
-						mCtc.addConstructor(CtNewConstructor.copy(getCtConstructor(mCopyConstructors.get(code.substring(1))), mCtc, null));
-					}
-					else
-					{
-						String[] sn = mCtc.getSimpleName().split("\\$+"); // inner class name include $.
-						mCtc.addConstructor(CtNewConstructor.make(code.replaceFirst(SIMPLE_NAME_TAG, sn[sn.length-1]), mCtc));
-					}
-				}
-			}
-			return mCtc.toClass(loader, pd);
-		}
-		catch(RuntimeException e)
-		{
-			throw e;
-		}
-		catch(NotFoundException e)
-		{
-			throw new RuntimeException(e.getMessage(), e);
-		}
-		catch(CannotCompileException e)
-		{
-			throw new RuntimeException(e.getMessage(), e);
-		}
-	}
+        if( mCtc != null )
+            mCtc.detach();
+        long id = CLASS_NAME_COUNTER.getAndIncrement();
+        try
+        {
+            CtClass ctcs = mSuperClass == null ? null : mPool.get(mSuperClass);
+            if( mClassName == null )
+                mClassName = ( mSuperClass == null || javassist.Modifier.isPublic(ctcs.getModifiers())
+                        ? ClassGenerator.class.getName() : mSuperClass + "$sc" ) + id;
+            mCtc = mPool.makeClass(mClassName);
+            if( mSuperClass != null )
+                mCtc.setSuperclass(ctcs);
+            mCtc.addInterface(mPool.get(DC.class.getName())); // add dynamic class tag.
+            if( mInterfaces != null )
+                for( String cl : mInterfaces ) mCtc.addInterface(mPool.get(cl));
+            if( mFields != null )
+                for( String code : mFields ) mCtc.addField(CtField.make(code, mCtc));
+            if( mMethods != null )
+            {
+                for( String code : mMethods )
+                {
+                    if( code.charAt(0) == ':' )
+                        mCtc.addMethod(CtNewMethod.copy(getCtMethod(mCopyMethods.get(code.substring(1))), code.substring(1, code.indexOf('(')), mCtc, null));
+                    else
+                        mCtc.addMethod(CtNewMethod.make(code, mCtc));
+                }
+            }
+            if( mDefaultConstructor )
+                mCtc.addConstructor(CtNewConstructor.defaultConstructor(mCtc));
+            if( mConstructors != null )
+            {
+                for( String code : mConstructors )
+                {
+                    if( code.charAt(0) == ':' )
+                    {
+                        mCtc.addConstructor(CtNewConstructor.copy(getCtConstructor(mCopyConstructors.get(code.substring(1))), mCtc, null));
+                    }
+                    else
+                    {
+                        String[] sn = mCtc.getSimpleName().split("\\$+"); // inner class name include $.
+                        mCtc.addConstructor(CtNewConstructor.make(code.replaceFirst(SIMPLE_NAME_TAG, sn[sn.length-1]), mCtc));
+                    }
+                }
+            }
+            return mCtc.toClass(ClassHelper.getCallerClassLoader(getClass()), null);
+        }
+        catch(RuntimeException e)
+        {
+            throw e;
+        }
+        catch(NotFoundException e)
+        {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+        catch(CannotCompileException e)
+        {
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
 
 	public void release()
 	{
